@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "clinical-stdio": {
+      "command": "python",
+      "args": ["-m", "clinical_mcp.server"],
+      "cwd": "${workspaceFolder}"
+    },
+    "clinical-network": {
+      "url": "http://127.0.0.1:8000/mcp"
+    },
+    "clinical-evidence": {
+      "url": "https://ai-clinical-pharmacologist.quiet-harp-4900.chatgpt.site/api/mcp"
+    }
+  }
+}

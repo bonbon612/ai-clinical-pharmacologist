@@ -1,45 +1,78 @@
 # ИИ клинический фармаколог
 
-Учебное мультиагентное web-приложение для проверки лекарственной терапии по данным [RxNorm](https://lhncbc.nlm.nih.gov/RxNav/APIs/RxNormAPIs.html) и [DailyMed](https://dailymed.nlm.nih.gov/dailymed/app-support-web-services.cfm).
+Учебная мультиагентная система с двумя интерфейсами:
 
-[Открыть рабочее приложение](https://ai-clinical-pharmacologist.quiet-harp-4900.chatgpt.site)
+- [web-приложение RxNorm + DailyMed](https://ai-clinical-pharmacologist.quiet-harp-4900.chatgpt.site/);
+- MCP-лаборатория с `stdio`, Streamable HTTP/SSE и удалённым провайдером доказательств.
 
-Приложение принимает до шести препаратов и учитывает возраст, СКФ, аллергии, диагнозы, беременность и лактацию. Рабочая версия не использует LLM: вывод формируют детерминированные правила, а каждый фрагмент можно проверить по инструкции DailyMed.
+Система работает без LLM. Клинические калькуляторы детерминированы, а сведения о лекарствах поступают из [RxNorm](https://lhncbc.nlm.nih.gov/RxNav/APIs/RxNormAPIs.html) и [DailyMed](https://dailymed.nlm.nih.gov/dailymed/app-support-web-services.cfm).
 
-> Учебный информационный сервис. Он не назначает лечение, не рассчитывает дозу и не заменяет решение врача.
+> Учебный информационный сервис. Клиническое решение принимает специалист.
 
-## Возможности
+## Практическое задание 2
 
-- распознавание вещества, дозировки и лекарственной формы через RxNorm;
-- раскрытие компонента дозировки до конкретного продукта;
-- проверка связи RxCUI с SET ID инструкции DailyMed;
-- поиск дублирования действующих веществ;
-- сопоставление аллергий с ингредиентами;
-- поиск упоминаний других препаратов в разделе взаимодействий;
-- извлечение разделов для функции почек, пожилого возраста, беременности и лактации;
-- экспорт результата в JSON;
-- серверный адаптер для будущего подключения LLM.
-
-## Архитектура
+| Провайдер | Транспорт | Инструменты |
+|---|---|---|
+| `clinical-calculators` | JSON-RPC 2.0 через stdin/stdout | ИМТ, CKD-EPI 2021, Cockcroft–Gault, CHA₂DS₂-VASc, GCS, каталог |
+| `clinical-calculators` | Streamable HTTP `:8000/mcp`; совместимый SSE `/sse` + `/messages` | те же 6 инструментов с общей валидацией |
+| `clinical-evidence` | удалённый HTTP `POST /api/mcp` | поиск RxNorm, инструкции DailyMed, проверка терапии |
 
 ```mermaid
 flowchart LR
-    A[Координатор] --> B[Агент RxNorm]
-    B --> C[Агент DailyMed]
-    C --> D[Проверяющий агент]
-    D --> E[Клинический анализатор]
-    E --> F[Отчёт]
+    UI[Streamlit] --> C[Асинхронный MCP-клиент]
+    C --> S[stdio]
+    C --> H[Streamable HTTP / SSE]
+    C --> R[Удалённый MCP]
+    R --> RX[RxNorm]
+    R --> DM[DailyMed]
+    UI --> I[JSON-RPC инспектор]
 ```
 
-1. Координатор проверяет ввод и запускает обработку препаратов параллельно.
-2. Агент RxNorm нормализует название и ранжирует подходящие лекарственные формы.
-3. Агент DailyMed получает список инструкций и SPL XML.
-4. Проверяющий агент подтверждает связь инструкции с выбранным RxCUI.
-5. Клинический анализатор применяет проверяемые правила к тексту инструкции.
+Web-интерфейс получает список инструментов через `tools/list`, строит поля по `inputSchema` и выполняет выбранный инструмент через `tools/call`. Прямых вызовов функций из интерфейса нет.
 
-## Запуск
+## Запуск MCP-лаборатории
 
-Требуется Node.js 22 или новее. Внешние npm-зависимости не нужны.
+Требуется Python 3.11 или новее.
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m clinical_mcp.launcher
+```
+
+После установки последний запуск выполняется одной командой:
+
+```powershell
+.venv\Scripts\python -m clinical_mcp.launcher
+```
+
+Откройте <http://localhost:8501>. Launcher запускает сетевой MCP на `http://127.0.0.1:8000/mcp` и завершает его вместе с интерфейсом.
+
+Отдельные режимы:
+
+```powershell
+# stdio — процесс запускает MCP-клиент
+.venv\Scripts\python -m clinical_mcp.server
+
+# Streamable HTTP
+.venv\Scripts\python -m clinical_mcp.network_server
+
+# SSE для совместимости
+.venv\Scripts\python -m clinical_mcp.network_server --transport sse
+```
+
+Конфигурация для Cursor находится в [`.cursor/mcp.json`](.cursor/mcp.json).
+
+## Демонстрация
+
+1. `Локальный · stdio` → `calculate_bmi` → масса `70`, рост `175` → `22.9 кг/м²`.
+2. `Сетевой · Streamable HTTP` → `calculate_gcs` → `4`, `5`, `6` → `15 баллов`.
+3. `RxNorm + DailyMed · удалённый` → `search_rxnorm` → `metformin` → список RxCUI.
+4. Откройте `JSON-RPC инспектор`: слева показан запрос `tools/call`, справа полный ответ.
+
+## Основное web-приложение
+
+Оно принимает до шести препаратов и учитывает возраст, СКФ, аллергии, диагнозы, беременность и лактацию. Результат состоит из проверяемых правил и фрагментов инструкций DailyMed.
 
 ```bash
 git clone https://github.com/bonbon612/ai-clinical-pharmacologist.git
@@ -49,50 +82,38 @@ npm start
 
 Откройте <http://127.0.0.1:4173/>.
 
-## Проверка
-
-```bash
-npm test
-npm run build
-npm run check
-```
-
-Сборка создаёт автономный Cloudflare Worker в `dist/server/index.js` со встроенными HTML, CSS и JavaScript.
-
-## API
-
 | Маршрут | Назначение |
 |---|---|
-| `GET /api/review?meds=...` | Полный разбор списка препаратов |
-| `GET /api/search?q=...` | Поиск записей RxNorm |
-| `GET /api/passport?id=...` | Данные RxNorm и инструкции DailyMed |
-| `GET /api/label?setid=...&id=...` | Проверенная инструкция SPL |
+| `GET /api/review?meds=...` | полный разбор списка препаратов |
+| `GET /api/search?q=...` | поиск RxNorm |
+| `GET /api/passport?id=...` | RxNorm и инструкции DailyMed |
+| `GET /api/label?setid=...&id=...` | проверенная инструкция SPL |
+| `POST /api/mcp` | удалённый JSON-RPC провайдер |
 
-## Пример
+## Проверка
 
-```text
-metformin 500 mg
-ibuprofen 200 mg
+```powershell
+npm run check
+.venv\Scripts\python -m unittest discover -s tests -p "test_*.py"
 ```
 
-Возраст: `67`, СКФ: `45`.
-
-Приложение распознаёт оба продукта, проверяет инструкции и показывает разделы по функции почек и пожилому возрасту.
+Проверки охватывают расчёты, граничные значения, схемы инструментов, вызов через MCP-протокол и существующий анализ лекарств.
 
 ## Структура
 
 ```text
-lib/                 агенты, правила и адаптер LLM
-public/              web-интерфейс
-tests/               автоматические тесты
-docs/                доклад и презентация
-server.mjs           HTTP API
-local-server.mjs     локальный сервер
-build.mjs            сборка Worker
+clinical_mcp/       калькуляторы, MCP-серверы, клиент, sanitizer, launcher
+streamlit_app.py    интерфейс и JSON-RPC инспектор
+lib/                агенты RxNorm/DailyMed и клинические правила
+public/             основное web-приложение
+tests/              Node и Python тесты
+docs/               доклад, презентация, отчёт по практическому заданию 2
+server.mjs          HTTP API и удалённый MCP
 ```
 
-## Материалы проекта
+## Материалы
 
+- [Отчёт по практическому заданию 2](docs/practical_assignment_2.md)
 - [Доклад PDF](docs/AI_clinical_pharmacologist_report.pdf)
 - [Доклад DOCX](docs/AI_clinical_pharmacologist_report.docx)
 - [Презентация](docs/AI_clinical_pharmacologist_presentation.pptx)
@@ -101,17 +122,15 @@ build.mjs            сборка Worker
 
 - RxNorm и DailyMed описывают рынок и инструкции США.
 - Российские торговые названия могут отсутствовать.
-- Совпадение текста указывает на раздел для проверки специалистом и не доказывает наличие взаимодействия или противопоказания.
+- Результат калькулятора требует клинической интерпретации.
 - Отсутствие найденного предупреждения не подтверждает безопасность комбинации.
 - Не вводите персональные данные пациента.
 
-## Подключение LLM
+## Технические источники
 
-`lib/llm-adapter.mjs` отключён по умолчанию. Адаптер принимает только проверенные фрагменты источников и отклоняет ссылки на доказательства, которых не было во входных данных. Перед включением модели нужны экспертная валидация, размеченная тестовая выборка, защищённое хранение ключа и контроль доступа.
-
-## Источники
-
+- [MCP Python SDK 2.x](https://py.sdk.modelcontextprotocol.io/)
+- [MCP: запуск серверов](https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/run/index.md)
+- [MCP: клиентские транспорты](https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/client/transports.md)
 - [RxNorm API](https://lhncbc.nlm.nih.gov/RxNav/APIs/RxNormAPIs.html)
 - [DailyMed Web Services](https://dailymed.nlm.nih.gov/dailymed/app-support-web-services.cfm)
-- [DailyMed SPL API](https://dailymed.nlm.nih.gov/dailymed/webservices-help/v2/spls_api.cfm)
 - [Лекции по мультиагентным системам](https://edwfa.github.io/mas-lecture/)
