@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {normalize,verifyMapping,passportAgents,labelAgent,searchAgents,makeClient} from '../lib/agents.mjs';
+import {summarizeVerifiedEvidence} from '../lib/llm-adapter.mjs';
+import {parseTherapy,scoreCandidate} from '../lib/clinical-review.mjs';
+test('Russian aliases and bounded query',()=>{assert.equal(normalize(' Метформин '),'metformin');assert.equal(normalize('метформин 500 мг'),'metformin 500 mg');assert.throws(()=>normalize('a'));assert.throws(()=>normalize('a'.repeat(121)));});
+test('A different SPL is never accepted as a match',()=>{assert.equal(verifyMapping('a',[{setid:'b'}]),false);assert.equal(verifyMapping('A',[{setid:'a'}]),true);});
+test('Partial DailyMed failure keeps RxNorm data',async()=>{const r=await passportAgents('861007',1,async u=>{if(u.includes('properties'))return {properties:{rxcui:'861007',name:'test product',tty:'SCD'}};if(u.includes('related'))return {relatedGroup:{conceptGroup:[]}};throw new Error('offline')});assert.equal(r.partial,true);assert.equal(r.concept.rxcui,'861007');assert.equal(r.labels.length,0);});
+test('Unrelated document cannot acquire verified status',async()=>{const r=await labelAgent('55062171-7581-0630-e063-6394a90ac088','861007',1,async (u,f)=>f==='xml'?'<document/>':{data:[{setid:'different'}]});assert.equal(r.verified,false);});
+test('Empty search switches to approximate lookup and labels suggestions',async()=>{let approximateCalled=false;const r=await searchAgents('not_a_drug',async u=>{if(u.includes('approximateTerm')){approximateCalled=true;return {approximateGroup:{candidate:[]}};}return {}});assert.equal(approximateCalled,true);assert.equal(r.approximate,true);assert.deepEqual(r.candidates,[]);});
+test('Cache avoids repeat source requests',async()=>{let n=0;const get=makeClient(async()=>{n++;return new Response('{"ok":true}',{headers:{'Content-Type':'application/json'}})});await get('https://example.org');await get('https://example.org');assert.equal(n,1);});
+test('Disabled model does not send anything',async()=>{const r=await summarizeVerifiedEvidence([],{},()=>{throw new Error('must not call')});assert.equal(r.status,'disabled');});
+test('Model citations outside evidence are rejected',async()=>{await assert.rejects(()=>summarizeVerifiedEvidence([{id:'a',text:'source'}],{enabled:true,apiKey:'test',model:'test',endpoint:'https://example.org'},async()=>new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({claims:[{text:'x',evidenceIds:['invented']}]})}}]}))),/unsupported citations/);});
+test('Therapy input is bounded and deduplicated',()=>{assert.deepEqual(parseTherapy('metformin\nmetformin\nibuprofen'),['metformin','ibuprofen']);assert.throws(()=>parseTherapy(''));assert.throws(()=>parseTherapy('a\nb\nc\nd\ne\nf\ng'));});
+test('Candidate scoring prefers the requested strength and avoids combinations',()=>{const single=scoreCandidate('metformin 500 mg',{name:'metformin hydrochloride 500 MG Oral Tablet',tty:'SCD'});const combo=scoreCandidate('metformin 500 mg',{name:'metformin 500 MG / sitagliptin 50 MG Oral Tablet',tty:'SCD'});assert.ok(single>combo);});
