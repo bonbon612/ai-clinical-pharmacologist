@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  node:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,4 +18,14 @@ jobs:
           node-version: 22
       - name: Test and build
         run: npm run check
-
+  python-mcp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install MCP lab
+        run: pip install -r requirements.txt
+      - name: Test calculators
+        run: python -m unittest discover -s tests -p "test_*.py"
