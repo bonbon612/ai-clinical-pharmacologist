@@ -2,6 +2,8 @@
 
 Учебное мультиагентное web-приложение для проверки лекарственной терапии по данным [RxNorm](https://lhncbc.nlm.nih.gov/RxNav/APIs/RxNormAPIs.html) и [DailyMed](https://dailymed.nlm.nih.gov/dailymed/app-support-web-services.cfm).
 
+[Открыть рабочее приложение](https://ai-clinical-pharmacologist.quiet-harp-4900.chatgpt.site)
+
 Приложение принимает до шести препаратов и учитывает возраст, СКФ, аллергии, диагнозы, беременность и лактацию. Рабочая версия не использует LLM: вывод формируют детерминированные правила, а каждый фрагмент можно проверить по инструкции DailyMed.
 
 > Учебный информационный сервис. Он не назначает лечение, не рассчитывает дозу и не заменяет решение врача.
@@ -40,8 +42,8 @@ flowchart LR
 Требуется Node.js 22 или новее. Внешние npm-зависимости не нужны.
 
 ```bash
-git clone https://github.com/bonbon612/ai-clinical-pharmacologist.git
-cd ai-clinical-pharmacologist
+git clone https://github.com/bonbon612/26INF.git
+cd 26INF/ai-clinical-pharmacologist
 npm start
 ```
 
