@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,8 +76,10 @@ async def call_tool(source: str, network_url: str, name: str, arguments: dict) -
 
 async def _remote_rpc(url: str, payload: dict) -> dict:
     def send() -> dict:
-        req = Request(url, data=json.dumps(payload).encode("utf-8"), method="POST",
-                      headers={"Content-Type": "application/json", "Accept": "application/json"})
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        if token := os.getenv("MCP_REMOTE_TOKEN", "").strip():
+            headers["OAI-Sites-Authorization"] = f"Bearer {token}"
+        req = Request(url, data=json.dumps(payload).encode("utf-8"), method="POST", headers=headers)
         try:
             with urlopen(req, timeout=12) as response:
                 return json.loads(response.read().decode("utf-8"))

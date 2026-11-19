@@ -15,7 +15,7 @@
 |---|---|---|
 | `clinical-calculators` | JSON-RPC 2.0 через stdin/stdout | ИМТ, CKD-EPI 2021, Cockcroft–Gault, CHA₂DS₂-VASc, GCS, каталог |
 | `clinical-calculators` | Streamable HTTP `:8000/mcp`; совместимый SSE `/sse` + `/messages` | те же 6 инструментов с общей валидацией |
-| `clinical-evidence` | удалённый HTTP `POST /api/mcp` | поиск RxNorm, инструкции DailyMed, проверка терапии |
+| `clinical-evidence` | HTTP `POST /api/mcp`, локально или на hosted Site | поиск RxNorm, инструкции DailyMed, проверка терапии |
 
 ```mermaid
 flowchart LR
@@ -32,7 +32,7 @@ Web-интерфейс получает список инструментов ч
 
 ## Запуск MCP-лаборатории
 
-Требуется Python 3.11 или новее.
+Требуются Python 3.11+ и Node.js 22+.
 
 ```powershell
 python -m venv .venv
@@ -46,7 +46,9 @@ python -m venv .venv
 .venv\Scripts\python -m clinical_mcp.launcher
 ```
 
-Откройте <http://localhost:8501>. Launcher запускает сетевой MCP на `http://127.0.0.1:8000/mcp` и завершает его вместе с интерфейсом.
+Откройте <http://localhost:8501>. Launcher поднимает сетевой MCP на `:8000`, провайдер RxNorm/DailyMed на `:4173` и завершает оба вместе с интерфейсом.
+
+Опубликованный endpoint находится по адресу `https://ai-clinical-pharmacologist.quiet-harp-4900.chatgpt.site/api/mcp`. Сайт сохраняет режим доступа владельца. Для вызова из локального клиента задайте `MCP_REMOTE_URL` и `MCP_REMOTE_TOKEN`; секрет не хранится в репозитории.
 
 Отдельные режимы:
 
@@ -67,7 +69,7 @@ python -m venv .venv
 
 1. `Локальный · stdio` → `calculate_bmi` → масса `70`, рост `175` → `22.9 кг/м²`.
 2. `Сетевой · Streamable HTTP` → `calculate_gcs` → `4`, `5`, `6` → `15 баллов`.
-3. `RxNorm + DailyMed · удалённый` → `search_rxnorm` → `metformin` → список RxCUI.
+3. `RxNorm + DailyMed · удалённый` → `search_rxnorm` → `metformin` → список RxCUI из внешнего источника.
 4. Откройте `JSON-RPC инспектор`: слева показан запрос `tools/call`, справа полный ответ.
 
 ## Основное web-приложение
