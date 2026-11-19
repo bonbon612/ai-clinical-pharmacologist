@@ -1,0 +1,18 @@
+{
+  "name": "ai-clinical-pharmacologist",
+  "version": "1.0.0",
+  "description": "Мультиагентная проверка лекарственной терапии по RxNorm и DailyMed",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node local-server.mjs",
+    "start": "node local-server.mjs",
+    "build": "node build.mjs",
+    "test": "node --test tests/agents.test.mjs",
+    "check": "node --test tests/agents.test.mjs && node build.mjs && node --check dist/server/index.js"
+  }
+}
+

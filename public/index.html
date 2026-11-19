@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ИИ клинический фармаколог</title>
+  <meta name="description" content="Проверка лекарственной терапии по данным RxNorm и DailyMed">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <div><strong>ИИ клинический фармаколог</strong><span>RxNorm · DailyMed</span></div>
+    <button id="new-review" type="button">Новый анализ</button>
+  </header>
+
+  <main>
+    <section class="intro">
+      <h1>Проверка лекарственной терапии</h1>
+      <p>Сопоставление препаратов, предупреждений и сведений об особых группах пациентов.</p>
+    </section>
+
+    <div class="layout">
+      <form id="review-form" class="form-panel">
+        <h2>Данные для анализа</h2>
+
+        <label for="medications">Препараты</label>
+        <textarea id="medications" rows="7" maxlength="800" required placeholder="По одному препарату на строку&#10;metformin 500 mg&#10;ibuprofen 200 mg"></textarea>
+        <p class="hint">До 6 препаратов. По возможности укажите дозировку и лекарственную форму.</p>
+
+        <div class="two-columns">
+          <div><label for="age">Возраст</label><input id="age" type="number" min="0" max="120" placeholder="Например, 67"></div>
+          <div><label for="egfr">СКФ, мл/мин/1,73 м²</label><input id="egfr" type="number" min="1" max="200" placeholder="Например, 45"></div>
+        </div>
+
+        <label for="pregnancy">Беременность и лактация</label>
+        <select id="pregnancy">
+          <option value="">Не указано</option>
+          <option value="pregnancy">Беременность</option>
+          <option value="planning">Планирование беременности</option>
+          <option value="lactation">Лактация</option>
+        </select>
+
+        <label for="allergies">Аллергии</label>
+        <input id="allergies" maxlength="240" placeholder="Препараты или действующие вещества через запятую">
+
+        <label for="conditions">Состояния и диагнозы</label>
+        <textarea id="conditions" rows="3" maxlength="400" placeholder="Например: хроническая болезнь почек, язвенная болезнь"></textarea>
+
+        <button class="primary" type="submit">Проверить терапию</button>
+        <button class="example" type="button" id="fill-example">Заполнить пример</button>
+        <p class="privacy">Не вводите ФИО, дату рождения и другие персональные данные.</p>
+      </form>
+
+      <section class="report-panel" aria-live="polite">
+        <div id="status"></div>
+        <div id="report" class="empty-report">
+          <h2>Отчёт</h2>
+          <p>Добавьте препараты и клинические факторы, затем нажмите «Проверить терапию».</p>
+        </div>
+      </section>
+    </div>
+
+    <section class="method">
+      <h2>Как работает анализ</h2>
+      <ol>
+        <li><strong>RxNorm</strong><span>Нормализует названия, дозировки и лекарственные формы.</span></li>
+        <li><strong>DailyMed</strong><span>Предоставляет структурированные инструкции США.</span></li>
+        <li><strong>Проверяющий агент</strong><span>Ищет совпадения по аллергенам, дублирование веществ, упоминания взаимодействий и разделы для выбранных факторов.</span></li>
+      </ol>
+      <p>Система не назначает лечение, не рассчитывает дозу и не заменяет решение врача. Отсутствие найденного предупреждения не означает безопасность комбинации.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>Учебный проект</span>
+    <a href="https://lhncbc.nlm.nih.gov/RxNav/APIs/RxNormAPIs.html" target="_blank" rel="noreferrer">RxNorm API</a>
+    <a href="https://dailymed.nlm.nih.gov/dailymed/app-support-web-services.cfm" target="_blank" rel="noreferrer">DailyMed API</a>
+  </footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>
+
