@@ -42,8 +42,8 @@ flowchart LR
 Требуется Node.js 22 или новее. Внешние npm-зависимости не нужны.
 
 ```bash
-git clone https://github.com/bonbon612/26INF.git
-cd 26INF/ai-clinical-pharmacologist
+git clone https://github.com/bonbon612/ai-clinical-pharmacologist.git
+cd ai-clinical-pharmacologist
 npm start
 ```
 
