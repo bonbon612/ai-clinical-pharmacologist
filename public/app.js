@@ -144,4 +144,3 @@ function download(){
 $('#review-form').addEventListener('submit',event=>{event.preventDefault();run();});
 $('#fill-example').addEventListener('click',()=>{$('#medications').value='metformin 500 mg\nibuprofen 200 mg';$('#age').value='67';$('#egfr').value='45';$('#conditions').value='chronic kidney disease';});
 $('#new-review').addEventListener('click',()=>{$('#review-form').reset();current=null;$('#status').innerHTML='';$('#report').className='empty-report';$('#report').innerHTML='<h2>Отчёт</h2><p>Добавьте препараты и клинические факторы, затем нажмите «Проверить терапию».</p>';$('#medications').focus();});
-

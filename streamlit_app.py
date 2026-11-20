@@ -18,8 +18,8 @@ st.caption("Калькуляторы и поиск лекарств. Без LLM.
 SOURCES = {
     "Локальный · stdio": ("stdio", ""),
     "Сетевой · Streamable HTTP": ("network", os.getenv("MCP_NETWORK_URL", "http://127.0.0.1:8000/mcp")),
-    "RxNorm + DailyMed · удалённый": ("remote", os.getenv(
-        "MCP_REMOTE_URL", "http://127.0.0.1:4173/api/mcp")),
+    "RxNorm + DailyMed · локальный": ("evidence", os.getenv(
+        "MCP_EVIDENCE_URL", "http://127.0.0.1:4173/api/mcp")),
 }
 SMART_DEFAULTS = {
     "weight_kg": 70.0,

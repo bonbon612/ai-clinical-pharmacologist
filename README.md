@@ -1,9 +1,9 @@
 # ИИ клинический фармаколог
 
-Учебная мультиагентная система с двумя интерфейсами:
+Учебная мультиагентная система с двумя локальными интерфейсами:
 
-- [web-приложение RxNorm + DailyMed](https://ai-clinical-pharmacologist.quiet-harp-4900.chatgpt.site/);
-- MCP-лаборатория с `stdio`, Streamable HTTP/SSE и удалённым провайдером доказательств.
+- web-приложение RxNorm + DailyMed: <http://127.0.0.1:4173/>;
+- MCP-лаборатория с `stdio`, Streamable HTTP/SSE и локальным провайдером доказательств.
 
 Система работает без LLM. Клинические калькуляторы детерминированы, а сведения о лекарствах поступают из [RxNorm](https://lhncbc.nlm.nih.gov/RxNav/APIs/RxNormAPIs.html) и [DailyMed](https://dailymed.nlm.nih.gov/dailymed/app-support-web-services.cfm).
 
@@ -15,14 +15,14 @@
 |---|---|---|
 | `clinical-calculators` | JSON-RPC 2.0 через stdin/stdout | ИМТ, CKD-EPI 2021, Cockcroft–Gault, CHA₂DS₂-VASc, GCS, каталог |
 | `clinical-calculators` | Streamable HTTP `:8000/mcp`; совместимый SSE `/sse` + `/messages` | те же 6 инструментов с общей валидацией |
-| `clinical-evidence` | HTTP `POST /api/mcp`, локально или на hosted Site | поиск RxNorm, инструкции DailyMed, проверка терапии |
+| `clinical-evidence` | локальный HTTP `POST /api/mcp` | поиск RxNorm, инструкции DailyMed, проверка терапии |
 
 ```mermaid
 flowchart LR
     UI[Streamlit] --> C[Асинхронный MCP-клиент]
     C --> S[stdio]
     C --> H[Streamable HTTP / SSE]
-    C --> R[Удалённый MCP]
+    C --> R[Локальный RxNorm/DailyMed MCP]
     R --> RX[RxNorm]
     R --> DM[DailyMed]
     UI --> I[JSON-RPC инспектор]
@@ -48,7 +48,7 @@ python -m venv .venv
 
 Откройте <http://localhost:8501>. Launcher поднимает сетевой MCP на `:8000`, провайдер RxNorm/DailyMed на `:4173` и завершает оба вместе с интерфейсом.
 
-Опубликованный endpoint находится по адресу `https://ai-clinical-pharmacologist.quiet-harp-4900.chatgpt.site/api/mcp`. Сайт сохраняет режим доступа владельца. Для вызова из локального клиента задайте `MCP_REMOTE_URL` и `MCP_REMOTE_TOKEN`; секрет не хранится в репозитории.
+Провайдер доказательств работает только локально по адресу `http://127.0.0.1:4173/api/mcp`. Серверы слушают loopback-интерфейс `127.0.0.1` и недоступны другим устройствам сети.
 
 Отдельные режимы:
 
@@ -69,7 +69,7 @@ python -m venv .venv
 
 1. `Локальный · stdio` → `calculate_bmi` → масса `70`, рост `175` → `22.9 кг/м²`.
 2. `Сетевой · Streamable HTTP` → `calculate_gcs` → `4`, `5`, `6` → `15 баллов`.
-3. `RxNorm + DailyMed · удалённый` → `search_rxnorm` → `metformin` → список RxCUI из внешнего источника.
+3. `RxNorm + DailyMed · локальный` → `search_rxnorm` → `metformin` → список RxCUI из внешнего источника.
 4. Откройте `JSON-RPC инспектор`: слева показан запрос `tools/call`, справа полный ответ.
 
 ## Основное web-приложение
@@ -90,7 +90,7 @@ npm start
 | `GET /api/search?q=...` | поиск RxNorm |
 | `GET /api/passport?id=...` | RxNorm и инструкции DailyMed |
 | `GET /api/label?setid=...&id=...` | проверенная инструкция SPL |
-| `POST /api/mcp` | удалённый JSON-RPC провайдер |
+| `POST /api/mcp` | локальный JSON-RPC провайдер |
 
 ## Проверка
 
@@ -110,7 +110,7 @@ lib/                агенты RxNorm/DailyMed и клинические пр�
 public/             основное web-приложение
 tests/              Node и Python тесты
 docs/               доклад, презентация, отчёт по практическому заданию 2
-server.mjs          HTTP API и удалённый MCP
+server.mjs          HTTP API и локальный MCP
 ```
 
 ## Материалы
