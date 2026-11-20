@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from clinical_mcp.calculators import (
@@ -43,6 +44,20 @@ class CalculatorTests(unittest.TestCase):
     def test_sanitizer(self):
         schema = {"required": ["age"], "properties": {"age": {"type": "integer", "minimum": 18, "maximum": 120}}}
         self.assertEqual(sanitize(schema, {"age": "200"}), {"age": 120})
+
+    def test_sanitizer_parses_nested_json(self):
+        schema = {"properties": {
+            "terms": {"type": "array"},
+            "range": {"type": "object"},
+            "optional": {"type": "string"},
+        }}
+        self.assertEqual(
+            sanitize(schema, {"terms": '["kidney", "metformin"]',
+                              "range": json.dumps({"minDate": "2024", "maxDate": "2026"}),
+                              "optional": ""}),
+            {"terms": ["kidney", "metformin"],
+             "range": {"minDate": "2024", "maxDate": "2026"}},
+        )
 
 
 if __name__ == "__main__":

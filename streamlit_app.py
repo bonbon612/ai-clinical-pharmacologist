@@ -18,7 +18,9 @@ st.caption("Калькуляторы и поиск лекарств. Без LLM.
 SOURCES = {
     "Локальный · stdio": ("stdio", ""),
     "Сетевой · Streamable HTTP": ("network", os.getenv("MCP_NETWORK_URL", "http://127.0.0.1:8000/mcp")),
-    "RxNorm + DailyMed · локальный": ("evidence", os.getenv(
+    "Внешний · PubMed MCP": ("remote", os.getenv(
+        "MCP_REMOTE_URL", "https://pubmed.caseyjhand.com/mcp")),
+    "Дополнительно · RxNorm + DailyMed": ("evidence", os.getenv(
         "MCP_EVIDENCE_URL", "http://127.0.0.1:4173/api/mcp")),
 }
 SMART_DEFAULTS = {
@@ -30,6 +32,9 @@ SMART_DEFAULTS = {
     "verbal": 5,
     "motor": 6,
     "page": 1,
+    "query": "metformin chronic kidney disease",
+    "maxResults": 5,
+    "summaryCount": 3,
 }
 
 source_label = st.sidebar.selectbox("Источник", list(SOURCES))
@@ -91,6 +96,9 @@ for index, (name, field) in enumerate(schema.get("properties", {}).items()):
             if maximum is not None:
                 kwargs["max_value"] = int(maximum) if field.get("type") == "integer" else float(maximum)
             values[name] = st.number_input(label, **kwargs)
+        elif field.get("type") in {"array", "object"}:
+            initial = "" if default in (None, [], {}) else json.dumps(default, ensure_ascii=False)
+            values[name] = st.text_area(f"{label} · JSON", value=initial, key=key)
         else:
             values[name] = st.text_input(label, value=str(default), key=key)
 
@@ -116,10 +124,10 @@ if result:
     if result.get("components"):
         st.dataframe([{"компонент": key, "значение": value}
                       for key, value in result["components"].items()], hide_index=True, width="stretch")
-    candidates = result.get("candidates") or result.get("labels")
+    candidates = result.get("candidates") or result.get("labels") or result.get("summaries")
     if candidates:
         st.dataframe(candidates, hide_index=True, width="stretch")
-    source_url = result.get("source_url") or result.get("source")
+    source_url = result.get("source_url") or result.get("source") or result.get("searchUrl")
     if source_url:
         st.link_button("Источник", source_url)
     with st.expander("Полный результат"):

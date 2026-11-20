@@ -8,6 +8,9 @@
     "clinical-network": {
       "url": "http://127.0.0.1:8000/mcp"
     },
+    "pubmed-remote": {
+      "url": "https://pubmed.caseyjhand.com/mcp"
+    },
     "clinical-evidence": {
       "url": "http://127.0.0.1:4173/api/mcp"
     }

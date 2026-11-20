@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,8 @@ from mcp import StdioServerParameters
 from mcp.client import Client
 
 ROOT = Path(__file__).resolve().parents[1]
+REMOTE_CACHE_TTL_SECONDS = 300
+_REMOTE_CACHE: dict[str, tuple[float, Any]] = {}
 
 
 @dataclass
@@ -40,10 +43,15 @@ async def list_tools(source: str, network_url: str) -> tuple[list[dict], Exchang
     if source == "evidence":
         response = await _evidence_rpc(network_url, request)
         return response.get("result", {}).get("tools", []), Exchange(request, response)
-    async with Client(_server(source, network_url)) as client:
-        result = await asyncio.wait_for(client.list_tools(), timeout=12)
+    cache_key = f"tools:{network_url}" if source == "remote" else ""
+    if cache_key and (cached := _cache_get(cache_key)) is not None:
+        return cached
+    result = await _client_operation(source, network_url, "list")
     data = _model(result)
-    return data.get("tools", []), Exchange(request, {"jsonrpc": "2.0", "id": 1, "result": data})
+    value = (data.get("tools", []), Exchange(request, {"jsonrpc": "2.0", "id": 1, "result": data}))
+    if cache_key:
+        _cache_put(cache_key, value)
+    return value
 
 
 async def call_tool(source: str, network_url: str, name: str, arguments: dict) -> tuple[dict, Exchange]:
@@ -57,20 +65,50 @@ async def call_tool(source: str, network_url: str, name: str, arguments: dict) -
         if result.get("isError") or result.get("is_error"):
             raise RuntimeError(_content_text(result) or "MCP tool error")
         return _structured(result), Exchange(request, response)
+    cache_key = ""
+    if source == "remote":
+        cache_key = f"call:{network_url}:{name}:{json.dumps(arguments, ensure_ascii=False, sort_keys=True)}"
+        if (cached := _cache_get(cache_key)) is not None:
+            return cached
+    result = await _client_operation(source, network_url, "call", name, arguments)
+    data = _model(result)
+    if data.get("isError") or data.get("is_error"):
+        raise RuntimeError(_content_text(data) or "MCP tool error")
+    value = (_structured(data), Exchange(request, {"jsonrpc": "2.0", "id": 2, "result": data}))
+    if cache_key:
+        _cache_put(cache_key, value)
+    return value
+
+
+async def _client_operation(source: str, url: str, operation: str,
+                            name: str = "", arguments: dict | None = None):
     last_error = None
     for attempt in range(3):
         try:
-            async with Client(_server(source, network_url)) as client:
-                result = await asyncio.wait_for(client.call_tool(name, arguments), timeout=12)
-            data = _model(result)
-            if data.get("isError") or data.get("is_error"):
-                raise RuntimeError(_content_text(data) or "MCP tool error")
-            return _structured(data), Exchange(request, {"jsonrpc": "2.0", "id": 2, "result": data})
-        except Exception as exc:  # connection retry is deliberate at UI boundary
+            async with Client(_server(source, url)) as client:
+                if operation == "list":
+                    return await asyncio.wait_for(client.list_tools(), timeout=12)
+                return await asyncio.wait_for(client.call_tool(name, arguments or {}), timeout=12)
+        except Exception as exc:  # retries are deliberate at the network boundary
             last_error = exc
             if attempt < 2:
                 await asyncio.sleep(0.35 * (attempt + 1))
     raise RuntimeError(f"MCP недоступен после 3 попыток: {last_error}")
+
+
+def _cache_get(key: str):
+    item = _REMOTE_CACHE.get(key)
+    if not item:
+        return None
+    created_at, value = item
+    if time.monotonic() - created_at > REMOTE_CACHE_TTL_SECONDS:
+        _REMOTE_CACHE.pop(key, None)
+        return None
+    return value
+
+
+def _cache_put(key: str, value: Any) -> None:
+    _REMOTE_CACHE[key] = (time.monotonic(), value)
 
 
 async def _evidence_rpc(url: str, payload: dict) -> dict:

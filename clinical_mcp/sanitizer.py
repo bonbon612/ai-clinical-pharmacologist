@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 
 def default_for(schema: dict):
     if "default" in schema:
@@ -16,6 +18,10 @@ def default_for(schema: dict):
         if low is not None and high is not None:
             return (low + high) / 2
         return low if low is not None else 0
+    if kind == "array":
+        return []
+    if kind == "object":
+        return {}
     return ""
 
 
@@ -33,11 +39,21 @@ def sanitize(schema: dict, values: dict) -> dict:
             value = bool(value)
         elif kind == "string":
             value = str(value).strip()
+        elif kind in {"array", "object"} and isinstance(value, str):
+            value = value.strip()
+            if value:
+                value = json.loads(value)
+            else:
+                value = [] if kind == "array" else {}
+        if kind == "array" and not isinstance(value, list):
+            raise ValueError(f"{name}: ожидается JSON-массив")
+        if kind == "object" and not isinstance(value, dict):
+            raise ValueError(f"{name}: ожидается JSON-объект")
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             if "minimum" in field:
                 value = max(value, field["minimum"])
             if "maximum" in field:
                 value = min(value, field["maximum"])
-        if name in required or value not in ("", None):
+        if name in required or value not in ("", None, [], {}):
             result[name] = value
     return result
