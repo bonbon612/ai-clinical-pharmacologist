@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,8 +37,8 @@ def _server(source: str, network_url: str):
 
 async def list_tools(source: str, network_url: str) -> tuple[list[dict], Exchange]:
     request = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
-    if source == "remote":
-        response = await _remote_rpc(network_url, request)
+    if source == "evidence":
+        response = await _evidence_rpc(network_url, request)
         return response.get("result", {}).get("tools", []), Exchange(request, response)
     async with Client(_server(source, network_url)) as client:
         result = await asyncio.wait_for(client.list_tools(), timeout=12)
@@ -50,8 +49,8 @@ async def list_tools(source: str, network_url: str) -> tuple[list[dict], Exchang
 async def call_tool(source: str, network_url: str, name: str, arguments: dict) -> tuple[dict, Exchange]:
     request = {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
                "params": {"name": name, "arguments": arguments}}
-    if source == "remote":
-        response = await _remote_rpc(network_url, request)
+    if source == "evidence":
+        response = await _evidence_rpc(network_url, request)
         result = response.get("result", {})
         if response.get("error"):
             raise RuntimeError(response["error"].get("message", "JSON-RPC error"))
@@ -74,17 +73,15 @@ async def call_tool(source: str, network_url: str, name: str, arguments: dict) -
     raise RuntimeError(f"MCP недоступен после 3 попыток: {last_error}")
 
 
-async def _remote_rpc(url: str, payload: dict) -> dict:
+async def _evidence_rpc(url: str, payload: dict) -> dict:
     def send() -> dict:
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
-        if token := os.getenv("MCP_REMOTE_TOKEN", "").strip():
-            headers["OAI-Sites-Authorization"] = f"Bearer {token}"
         req = Request(url, data=json.dumps(payload).encode("utf-8"), method="POST", headers=headers)
         try:
             with urlopen(req, timeout=12) as response:
                 return json.loads(response.read().decode("utf-8"))
         except (HTTPError, URLError, TimeoutError) as exc:
-            raise RuntimeError(f"Удалённый MCP недоступен: {exc}") from exc
+            raise RuntimeError(f"Локальный провайдер RxNorm/DailyMed недоступен: {exc}") from exc
     return await asyncio.to_thread(send)
 
 
